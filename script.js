@@ -25,6 +25,14 @@ const zoomSlider = document.getElementById("zoom-slider");
 const zoomValueDisplay = document.getElementById("zoom-value");
 const exportButton = document.getElementById("export-button");
 
+// Elementos DOM adicionais para controles de imagem
+const imageXSlider = document.getElementById('image-x-slider');
+const imageYSlider = document.getElementById('image-y-slider');
+const imageScaleSlider = document.getElementById('image-scale-slider');
+const imageXValue = document.getElementById('image-x-value');
+const imageYValue = document.getElementById('image-y-value');
+const imageScaleValue = document.getElementById('image-scale-value');
+
 // Elementos adicionais do DOM
 const showNumbersCheckbox = document.getElementById("show-numbers");
 const toggleAdvancedButton = document.getElementById("toggle-advanced");
@@ -139,106 +147,6 @@ function calculateSheets(bannerWidth, bannerHeight) {
         total: totalSheets,
         efficiency: Math.round(efficiency)
     };
-}
-
-// Função aprimorada para desenhar a faixa e as folhas A4
-function drawBanner(bannerWidth, bannerHeight) {
-    // Verificar cobertura da imagem, se houver uma carregada
-    let coverageInfo = null;
-    if (uploadedImage) {
-        coverageInfo = checkImageCoverage();
-        displayCoverageWarnings(coverageInfo);
-    }
-    
-    // Obter cores baseadas no tema atual
-    const colors = getThemeColors();
-    
-    // Converter dimensões para pixels considerando zoom
-    const widthPx = cmToPixel(bannerWidth);
-    const heightPx = cmToPixel(bannerHeight);
-    
-    // Configurar o tamanho do canvas
-    canvas.width = widthPx + 60; // Adicionando margem
-    canvas.height = heightPx + 60; // Adicionando margem
-    
-    // Limpar o canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Desenhar a faixa (com um pequeno deslocamento para margem)
-    ctx.fillStyle = colors.bannerColor;
-    ctx.fillRect(30, 30, widthPx, heightPx);
-    
-    // Desenhar a borda da faixa
-    ctx.strokeStyle = colors.bannerBorderColor;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(30, 30, widthPx, heightPx);
-    
-    // Desenhar a imagem se existir
-    if (uploadedImage) {
-        ctx.save();
-        // Aplicar clipping para manter a imagem dentro da faixa
-        ctx.beginPath();
-        ctx.rect(30, 30, widthPx, heightPx);
-        ctx.clip();
-        
-        // Desenhar a imagem
-        ctx.drawImage(uploadedImage, 30 + imageX, 30 + imageY, imageWidth, imageHeight);
-        ctx.restore();
-        
-        // Desenhar indicadores de cobertura, se necessário
-        if (coverageInfo && !coverageInfo.fullyCovered) {
-            drawCoverageIndicators(ctx, coverageInfo);
-        }
-    }
-    
-    // Calcular quantas folhas cabem
-    const sheets = calculateSheets(bannerWidth, bannerHeight);
-    
-    // Obter dimensões da folha A4
-    const a4 = getA4Dimensions();
-    const marginInCm = sheetMargin * MM_TO_CM;
-    
-    // Converter dimensões para pixels considerando zoom
-    const a4WidthPx = cmToPixel(a4.width);
-    const a4HeightPx = cmToPixel(a4.height);
-    const marginPx = cmToPixel(marginInCm);
-    
-    // Desenhar as folhas A4
-    let sheetNumber = 1;
-    for (let row = 0; row < sheets.vertical; row++) {
-        for (let col = 0; col < sheets.horizontal; col++) {
-            // Alternar cores para melhor visualização
-            ctx.strokeStyle = (row + col) % 2 === 0 ? colors.sheetBorderColor : colors.sheetAltBorderColor;
-            ctx.lineWidth = 1;
-            
-            const x = 30 + col * (a4WidthPx - marginPx);
-            const y = 30 + row * (a4HeightPx - marginPx);
-            
-            // Desenhar apenas a parte da folha que cabe na faixa
-            const remainingWidth = Math.min(a4WidthPx, widthPx - col * (a4WidthPx - marginPx));
-            const remainingHeight = Math.min(a4HeightPx, heightPx - row * (a4HeightPx - marginPx));
-            
-            if (remainingWidth > 0 && remainingHeight > 0) {
-                ctx.strokeRect(x, y, remainingWidth, remainingHeight);
-                
-                // Adicionar numeração se estiver ativado
-                if (showNumbers) {
-                    ctx.fillStyle = ctx.strokeStyle;
-                    ctx.font = '16px Inter';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(sheetNumber.toString(), x + remainingWidth / 2, y + remainingHeight / 2);
-                    sheetNumber++;
-                }
-            }
-        }
-    }
-    
-    // Atualizar as informações
-    sheetCountElement.textContent = sheets.total;
-    sheetDistributionElement.textContent = `${sheets.horizontal} x ${sheets.vertical}`;
-    sheetDimensionsElement.textContent = a4.description;
-    paperEfficiencyElement.textContent = `${sheets.efficiency}%`;
 }
 
 // Função para atualizar a visualização quando os valores mudarem
@@ -521,6 +429,11 @@ saveConfigButton.addEventListener("click", saveConfiguration);
 loadConfigButton.addEventListener("click", loadConfiguration);
 generateGuideButton.addEventListener("click", generateMountingGuide);
 
+// Event listeners para os sliders de imagem
+imageXSlider.addEventListener('input', updateImageX);
+imageYSlider.addEventListener('input', updateImageY);
+imageScaleSlider.addEventListener('input', updateImageScale);
+
 // Configurar eventos para o drag and drop
 dropArea.addEventListener('click', () => {
     fileInput.click();
@@ -586,22 +499,59 @@ function handleImageUpload(file) {
             imageHeight = originalImageHeight * imageScale;
             
             // Centralizar na faixa
-            imageX = (bannerWidthPx - imageWidth) / 2;
-            imageY = (bannerHeightPx - imageHeight) / 2;
+            imageX = 0; // Centralizado
+            imageY = 0; // Centralizado
+            
+            // Adicionar inicialização dos sliders
+            imageXSlider.value = 0;
+            imageYSlider.value = 0;
+            imageScaleSlider.value = 80;
+            
+            // Atualizar textos dos valores
+            imageXValue.textContent = "0%";
+            imageYValue.textContent = "0%";
+            imageScaleValue.textContent = "80%";
             
             // Mostrar controles e atualizar canvas
             imageControls.style.display = 'flex';
             dropArea.style.display = 'none';
             
-            // Inicializar interact.js
-            initializeImageInteraction();
-            
+            // Desenhar a imagem
             updateVisualization();
         };
         uploadedImage.src = e.target.result;
     };
     
     reader.readAsDataURL(file);
+}
+
+// Função para atualizar os sliders de imagem com base nos valores atuais
+function updateImageSliders() {
+    if (!uploadedImage) return;
+    
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    const bannerWidthPx = cmToPixel(bannerWidth);
+    const bannerHeightPx = cmToPixel(bannerHeight);
+    
+    // Calcular percentual da posição relativa ao centro
+    const maxOffset = bannerWidthPx / 2;
+    const relativeX = (imageX / maxOffset) * 100;
+    const relativeY = (imageY / (bannerHeightPx / 2)) * 100;
+    
+    // Calcular percentual da escala
+    const baseScale = (bannerWidthPx * 0.8) / originalImageWidth;
+    const scalePercent = Math.round((imageScale / baseScale) * 100);
+    
+    // Atualizar valores dos sliders
+    imageXSlider.value = Math.round(relativeX);
+    imageYSlider.value = Math.round(relativeY);
+    imageScaleSlider.value = Math.min(200, Math.max(10, scalePercent));
+    
+    // Atualizar textos
+    imageXValue.textContent = `${Math.round(relativeX)}%`;
+    imageYValue.textContent = `${Math.round(relativeY)}%`;
+    imageScaleValue.textContent = `${Math.min(200, Math.max(10, scalePercent))}%`;
 }
 
 // Função para redefinir a imagem para posição e tamanho iniciais
@@ -623,9 +573,11 @@ function resetImage() {
         imageHeight = originalImageHeight * imageScale;
         
         // Centralizar na faixa
-        imageX = (bannerWidthPx - imageWidth) / 2;
-        imageY = (bannerHeightPx - imageHeight) / 2;
+        imageX = 0;
+        imageY = 0;
         
+        // Atualizar sliders e visualização
+        updateImageSliders();
         updateVisualization();
     }
 }
@@ -637,265 +589,396 @@ function removeImage() {
     imageControls.style.display = 'none';
     dropArea.style.display = 'block';
     updateVisualization();
-    const imageManipulator = document.getElementById('image-manipulator');
-    if (imageManipulator) {
-        document.body.removeChild(imageManipulator);
-    }
-    isDraggingImage = false;
 }
 
-// Inicializar
-window.addEventListener("load", () => {
-    loadThemePreference();
-    updateMargin(); // Inicializa o valor da margem
-    updateZoom(); // Inicializa o valor do zoom
+// Função para atualizar a posição X da imagem
+function updateImageX() {
+    if (!uploadedImage) return;
+    
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerWidthPx = cmToPixel(bannerWidth);
+    
+    // Converter percentual para pixels
+    const percent = parseInt(imageXSlider.value);
+    imageX = (percent / 100) * (bannerWidthPx / 2);
+    
+    // Atualizar texto
+    imageXValue.textContent = `${percent}%`;
+    
+    // Chamada para atualizar a visualização
     updateVisualization();
-});
-
-// Função para inicializar interact.js após o carregamento da imagem
-function initializeImageInteraction() {
-    // Criar uma div para representar a imagem manipulável
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Assegurar que a div manipulável não existe ainda
-    const existingManipulator = document.getElementById('image-manipulator');
-    if (existingManipulator) {
-        document.body.removeChild(existingManipulator);
-    }
-    
-    // Criar a div manipulável
-    const imageManipulator = document.createElement('div');
-    imageManipulator.id = 'image-manipulator';
-    imageManipulator.style.position = 'absolute';
-    imageManipulator.style.width = `${imageWidth}px`;
-    imageManipulator.style.height = `${imageHeight}px`;
-    imageManipulator.style.left = `${canvasRect.left + 30 + imageX}px`;
-    imageManipulator.style.top = `${canvasRect.top + 30 + imageY}px`;
-    imageManipulator.style.cursor = 'move';
-    imageManipulator.style.border = '1px dashed rgba(16, 163, 127, 0.5)';
-    imageManipulator.style.zIndex = '1000';
-    imageManipulator.style.display = 'none'; // Inicialmente oculto, exibido apenas quando o mouse está sobre o canvas
-    
-    // Adicionar manipuladores de redimensionamento
-    const positions = ['tl', 'tr', 'bl', 'br'];
-    positions.forEach(pos => {
-        const handle = document.createElement('div');
-        handle.className = `resize-handle ${pos}`;
-        imageManipulator.appendChild(handle);
-    });
-    
-    document.body.appendChild(imageManipulator);
-    
-    // Configurar interação de arrastar
-    interact(imageManipulator)
-        .draggable({
-            inertia: true,
-            modifiers: [
-                interact.modifiers.restrictRect({
-                    restriction: {
-                        left: canvasRect.left + 30,
-                        right: canvasRect.left + 30 + cmToPixel(parseFloat(bannerWidthInput.value) || 100) - imageWidth,
-                        top: canvasRect.top + 30,
-                        bottom: canvasRect.top + 30 + cmToPixel(parseFloat(bannerHeightInput.value) || 50) - imageHeight
-                    }
-                })
-            ],
-            listeners: {
-                move: dragMoveListener,
-                end: function() {
-                    updateVisualization();
-                }
-            }
-        })
-        .resizable({
-            // Restringir para manter proporção
-            preserveAspectRatio: true,
-            
-            // Apenas cantos para redimensionar
-            edges: { left: true, right: true, bottom: true, top: true },
-            
-            modifiers: [
-                // Manter dentro da faixa
-                interact.modifiers.restrictSize({
-                    min: { width: 20, height: 20 },
-                    max: { 
-                        width: cmToPixel(parseFloat(bannerWidthInput.value) || 100), 
-                        height: cmToPixel(parseFloat(bannerHeightInput.value) || 50) 
-                    }
-                }),
-                
-                // Restrição de posicionamento
-                interact.modifiers.restrictEdges({
-                    outer: {
-                        left: canvasRect.left + 30,
-                        right: canvasRect.left + 30 + cmToPixel(parseFloat(bannerWidthInput.value) || 100),
-                        top: canvasRect.top + 30,
-                        bottom: canvasRect.top + 30 + cmToPixel(parseFloat(bannerHeightInput.value) || 50)
-                    }
-                })
-            ],
-            
-            listeners: {
-                move: resizeMoveListener,
-                end: function() {
-                    updateVisualization();
-                }
-            }
-        });
-    
-    // Mostrar o manipulador apenas quando o mouse estiver sobre o canvas
-    canvas.addEventListener('mouseenter', function() {
-        if (uploadedImage) {
-            imageManipulator.style.display = 'block';
-        }
-    });
-    
-    canvas.addEventListener('mouseleave', function(e) {
-        // Verificar se não estamos arrastando
-        if (!isDraggingImage) {
-            imageManipulator.style.display = 'none';
-        }
-    });
-    
-    // Atualizar a posição do manipulador quando a janela for redimensionada
-    window.addEventListener('resize', function() {
-        if (uploadedImage) {
-            updateManipulatorPosition();
-        }
-    });
 }
 
-// Função para lidar com o arrastar
-function dragMoveListener(event) {
-    isDraggingImage = true;
+// Função para atualizar a posição Y da imagem
+function updateImageY() {
+    if (!uploadedImage) return;
     
-    const canvasRect = canvas.getBoundingClientRect();
-    const target = event.target;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    const bannerHeightPx = cmToPixel(bannerHeight);
     
-    // Atualizar posição do elemento
-    const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-    const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+    // Converter percentual para pixels
+    const percent = parseInt(imageYSlider.value);
+    imageY = (percent / 100) * (bannerHeightPx / 2);
     
-    // Atualizar posição do elemento
-    target.style.transform = `translate(${x}px, ${y}px)`;
+    // Atualizar texto
+    imageYValue.textContent = `${percent}%`;
     
-    // Armazenar a posição
-    target.setAttribute('data-x', x);
-    target.setAttribute('data-y', y);
-    
-    // Atualizar as coordenadas da imagem
-    imageX = ((parseFloat(target.style.left) - canvasRect.left - 30) || 0) + x;
-    imageY = ((parseFloat(target.style.top) - canvasRect.top - 30) || 0) + y;
-    
-    // Redraw canvas em tempo real
-    requestAnimationFrame(function() {
-        drawBanner(parseFloat(bannerWidthInput.value) || 100, parseFloat(bannerHeightInput.value) || 50);
-    });
+    // Chamada para atualizar a visualização
+    updateVisualization();
 }
 
-// Função para lidar com o redimensionamento
-function resizeMoveListener(event) {
-    isDraggingImage = true;
+// Função para atualizar a escala da imagem
+function updateImageScale() {
+    if (!uploadedImage) return;
     
-    const canvasRect = canvas.getBoundingClientRect();
-    const target = event.target;
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerWidthPx = cmToPixel(bannerWidth);
     
-    let x = (parseFloat(target.getAttribute('data-x')) || 0);
-    let y = (parseFloat(target.getAttribute('data-y')) || 0);
+    // Escala base (80% da faixa)
+    const baseScale = (bannerWidthPx * 0.8) / originalImageWidth;
     
-    // Atualizar as dimensões do elemento
-    target.style.width = `${event.rect.width}px`;
-    target.style.height = `${event.rect.height}px`;
+    // Converter percentual para escala real
+    const percent = parseInt(imageScaleSlider.value);
+    imageScale = baseScale * (percent / 100);
     
-    // Traduzir quando redimensionando do topo ou esquerda
-    x += event.deltaRect.left;
-    y += event.deltaRect.top;
+    // Atualizar dimensões
+    imageWidth = originalImageWidth * imageScale;
+    imageHeight = originalImageHeight * imageScale;
     
-    target.style.transform = `translate(${x}px, ${y}px)`;
+    // Atualizar texto
+    imageScaleValue.textContent = `${percent}%`;
     
-    // Armazenar a posição
-    target.setAttribute('data-x', x);
-    target.setAttribute('data-y', y);
-    
-    // Atualizar as dimensões e posição da imagem
-    imageWidth = event.rect.width;
-    imageHeight = event.rect.height;
-    imageX = ((parseFloat(target.style.left) - canvasRect.left - 30) || 0) + x;
-    imageY = ((parseFloat(target.style.top) - canvasRect.top - 30) || 0) + y;
-    
-    // Calcular a nova escala
-    imageScale = imageWidth / originalImageWidth;
-    
-    // Redraw canvas em tempo real
-    requestAnimationFrame(function() {
-        drawBanner(parseFloat(bannerWidthInput.value) || 100, parseFloat(bannerHeightInput.value) || 50);
-    });
+    // Chamada para atualizar a visualização
+    updateVisualization();
 }
 
-// Função para atualizar a posição do manipulador
-function updateManipulatorPosition() {
-    const canvasRect = canvas.getBoundingClientRect();
-    const imageManipulator = document.getElementById('image-manipulator');
-    
-    if (imageManipulator) {
-        // Redefinir a transformação
-        imageManipulator.style.transform = 'translate(0px, 0px)';
-        imageManipulator.setAttribute('data-x', 0);
-        imageManipulator.setAttribute('data-y', 0);
-        
-        // Atualizar posição e tamanho
-        imageManipulator.style.width = `${imageWidth}px`;
-        imageManipulator.style.height = `${imageHeight}px`;
-        imageManipulator.style.left = `${canvasRect.left + 30 + imageX}px`;
-        imageManipulator.style.top = `${canvasRect.top + 30 + imageY}px`;
-    }
-}
-
-// Modificar a função updateVisualization para atualizar o manipulador
-const originalUpdateVisualization = updateVisualization;
-updateVisualization = function() {
-    originalUpdateVisualization();
+// Função aprimorada para desenhar a faixa e as folhas A4
+function drawBanner(bannerWidth, bannerHeight) {
+    // Verificar cobertura da imagem, se houver uma carregada
+    let coverageInfo = null;
     if (uploadedImage) {
-        updateManipulatorPosition();
+        coverageInfo = checkImageCoverage();
+        displayCoverageWarnings(coverageInfo);
     }
-};
-
-// Adicionar captura do evento mouseup para encerrar o estado de arrastar
-document.addEventListener('mouseup', function() {
-    isDraggingImage = false;
-    const imageManipulator = document.getElementById('image-manipulator');
     
-    // Verificar se o mouse está fora do canvas para esconder o manipulador
-    if (imageManipulator) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const mouseX = event.clientX;
-        const mouseY = event.clientY;
+    // Obter cores baseadas no tema atual
+    const colors = getThemeColors();
+    
+    // Converter dimensões para pixels considerando zoom
+    const widthPx = cmToPixel(bannerWidth);
+    const heightPx = cmToPixel(bannerHeight);
+    
+    // Configurar o tamanho do canvas
+    canvas.width = widthPx + 60; // Adicionando margem
+    canvas.height = heightPx + 60; // Adicionando margem
+    
+    // Limpar o canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Desenhar a faixa (com um pequeno deslocamento para margem)
+    ctx.fillStyle = colors.bannerColor;
+    ctx.fillRect(30, 30, widthPx, heightPx);
+    
+    // Desenhar a borda da faixa
+    ctx.strokeStyle = colors.bannerBorderColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(30, 30, widthPx, heightPx);
+    
+    // Desenhar a imagem se existir
+    if (uploadedImage) {
+        ctx.save();
+        // Aplicar clipping para manter a imagem dentro da faixa
+        ctx.beginPath();
+        ctx.rect(30, 30, widthPx, heightPx);
+        ctx.clip();
         
-        if (mouseX < canvasRect.left || mouseX > canvasRect.right || 
-            mouseY < canvasRect.top || mouseY > canvasRect.bottom) {
-            imageManipulator.style.display = 'none';
+        // Calcular posição centralizada
+        const centerX = 30 + (widthPx / 2) + imageX - (imageWidth / 2);
+        const centerY = 30 + (heightPx / 2) + imageY - (imageHeight / 2);
+        
+        // Desenhar a imagem centralizada + offset
+        ctx.drawImage(uploadedImage, centerX, centerY, imageWidth, imageHeight);
+        ctx.restore();
+        
+        // Desenhar indicadores de cobertura, se necessário
+        if (coverageInfo && !coverageInfo.fullyCovered) {
+            drawCoverageIndicators(ctx, coverageInfo);
         }
     }
-});
-
-// Modificar a função exportAsPNG para remover temporariamente o manipulador durante o export
-const originalExportAsPNG = exportAsPNG;
-exportAsPNG = function() {
-    // Temporariamente ocultar o manipulador
-    const imageManipulator = document.getElementById('image-manipulator');
-    if (imageManipulator) {
-        const originalDisplay = imageManipulator.style.display;
-        imageManipulator.style.display = 'none';
-        
-        // Exportar e depois restaurar o manipulador
-        setTimeout(() => {
-            originalExportAsPNG();
-            imageManipulator.style.display = originalDisplay;
-        }, 0);
-    } else {
-        originalExportAsPNG();
+    
+    // Calcular quantas folhas cabem
+    const sheets = calculateSheets(bannerWidth, bannerHeight);
+    
+    // Obter dimensões da folha A4
+    const a4 = getA4Dimensions();
+    const marginInCm = sheetMargin * MM_TO_CM;
+    
+    // Converter dimensões para pixels considerando zoom
+    const a4WidthPx = cmToPixel(a4.width);
+    const a4HeightPx = cmToPixel(a4.height);
+    const marginPx = cmToPixel(marginInCm);
+    
+    // Desenhar as folhas A4
+    let sheetNumber = 1;
+    for (let row = 0; row < sheets.vertical; row++) {
+        for (let col = 0; col < sheets.horizontal; col++) {
+            // Alternar cores para melhor visualização
+            ctx.strokeStyle = (row + col) % 2 === 0 ? colors.sheetBorderColor : colors.sheetAltBorderColor;
+            ctx.lineWidth = 1;
+            
+            const x = 30 + col * (a4WidthPx - marginPx);
+            const y = 30 + row * (a4HeightPx - marginPx);
+            
+            // Desenhar apenas a parte da folha que cabe na faixa
+            const remainingWidth = Math.min(a4WidthPx, widthPx - col * (a4WidthPx - marginPx));
+            const remainingHeight = Math.min(a4HeightPx, heightPx - row * (a4HeightPx - marginPx));
+            
+            if (remainingWidth > 0 && remainingHeight > 0) {
+                ctx.strokeRect(x, y, remainingWidth, remainingHeight);
+                
+                // Adicionar numeração se estiver ativado
+                if (showNumbers) {
+                    ctx.fillStyle = ctx.strokeStyle;
+                    ctx.font = '16px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(sheetNumber.toString(), x + remainingWidth / 2, y + remainingHeight / 2);
+                    sheetNumber++;
+                }
+            }
+        }
     }
-};
+    
+    // Atualizar as informações
+    sheetCountElement.textContent = sheets.total;
+    sheetDistributionElement.textContent = `${sheets.horizontal} x ${sheets.vertical}`;
+    sheetDimensionsElement.textContent = a4.description;
+    paperEfficiencyElement.textContent = `${sheets.efficiency}%`;
+}
+
+// Funções para validação de cobertura de imagem
+function checkImageCoverage() {
+    if (!uploadedImage) return null;
+    
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    
+    // Converter para pixels
+    const bannerWidthPx = cmToPixel(bannerWidth);
+    const bannerHeightPx = cmToPixel(bannerHeight);
+    
+    // Calcular posição centralizada
+    const centerX = (bannerWidthPx / 2) + imageX - (imageWidth / 2);
+    const centerY = (bannerHeightPx / 2) + imageY - (imageHeight / 2);
+    
+    // Obter as dimensões e posição atual da imagem
+    const imageBounds = {
+        x: centerX,
+        y: centerY,
+        width: imageWidth,
+        height: imageHeight,
+        right: centerX + imageWidth,
+        bottom: centerY + imageHeight
+    };
+    
+    // Verificar se a imagem cobre completamente a faixa
+    const coverageIssues = [];
+    
+    // Verificar se alguma parte da faixa não está coberta pela imagem
+    if (imageBounds.x > 0) {
+        coverageIssues.push({
+            type: 'uncovered',
+            area: 'left',
+            message: `Área esquerda da faixa não coberta (${(imageBounds.x / cmToPixel(1)).toFixed(1)}cm)`
+        });
+    }
+    
+    if (imageBounds.y > 0) {
+        coverageIssues.push({
+            type: 'uncovered',
+            area: 'top',
+            message: `Área superior da faixa não coberta (${(imageBounds.y / cmToPixel(1)).toFixed(1)}cm)`
+        });
+    }
+    
+    if (imageBounds.right < bannerWidthPx) {
+        coverageIssues.push({
+            type: 'uncovered',
+            area: 'right',
+            message: `Área direita da faixa não coberta (${((bannerWidthPx - imageBounds.right) / cmToPixel(1)).toFixed(1)}cm)`
+        });
+    }
+    
+    if (imageBounds.bottom < bannerHeightPx) {
+        coverageIssues.push({
+            type: 'uncovered',
+            area: 'bottom',
+            message: `Área inferior da faixa não coberta (${((bannerHeightPx - imageBounds.bottom) / cmToPixel(1)).toFixed(1)}cm)`
+        });
+    }
+    
+    // Verificar se parte da imagem está fora da área da faixa (desperdício)
+    const wastedArea = {
+        left: Math.max(0, -imageBounds.x),
+        top: Math.max(0, -imageBounds.y),
+        right: Math.max(0, imageBounds.right - bannerWidthPx),
+        bottom: Math.max(0, imageBounds.bottom - bannerHeightPx)
+    };
+    
+    const totalWastedWidth = wastedArea.left + wastedArea.right;
+    const totalWastedHeight = wastedArea.top + wastedArea.bottom;
+    
+    if (totalWastedWidth > 0 || totalWastedHeight > 0) {
+        const wastedWidthCm = (totalWastedWidth / cmToPixel(1)).toFixed(1);
+        const wastedHeightCm = (totalWastedHeight / cmToPixel(1)).toFixed(1);
+        
+        coverageIssues.push({
+            type: 'overflow',
+            message: `Parte da imagem está fora da área útil (${wastedWidthCm}cm × ${wastedHeightCm}cm)`
+        });
+    }
+    
+    return {
+        fullyCovered: coverageIssues.length === 0,
+        issues: coverageIssues,
+        imageBounds: imageBounds,
+        wastedArea: wastedArea
+    };
+}
+
+// Função para mostrar avisos de cobertura
+function displayCoverageWarnings(coverageInfo) {
+    // Remover avisos anteriores
+    const existingWarnings = document.querySelectorAll('.coverage-warning');
+    existingWarnings.forEach(warning => warning.remove());
+    
+    if (!coverageInfo || coverageInfo.fullyCovered) return;
+    
+    // Criar contêiner de avisos se não existir
+    let warningsContainer = document.getElementById('coverage-warnings');
+    if (!warningsContainer) {
+        warningsContainer = document.createElement('div');
+        warningsContainer.id = 'coverage-warnings';
+        warningsContainer.className = 'coverage-warnings';
+        
+        // Inserir antes da imagem de upload ou depois do canvas
+        const imageControls = document.querySelector('.image-controls');
+        if (imageControls) {
+            imageControls.parentNode.insertBefore(warningsContainer, imageControls);
+        } else {
+            const canvasContainer = document.querySelector('.canvas-container');
+            canvasContainer.parentNode.insertBefore(warningsContainer, canvasContainer.nextSibling);
+        }
+    } else {
+        // Limpar avisos existentes
+        warningsContainer.innerHTML = '';
+    }
+    
+    // Adicionar nota informativa
+    const noteElement = document.createElement('div');
+    noteElement.className = 'coverage-note';
+    noteElement.innerHTML = '<i class="fas fa-info-circle"></i> <span>Você pode continuar movendo e redimensionando a imagem conforme necessário.</span>';
+    warningsContainer.appendChild(noteElement);
+    
+    // Adicionar cada aviso
+    coverageInfo.issues.forEach(issue => {
+        const warningElement = document.createElement('div');
+        warningElement.className = `coverage-warning ${issue.type}`;
+        
+        // Ícone apropriado para o tipo de aviso
+        const icon = issue.type === 'uncovered' ? 
+            '<i class="fas fa-exclamation-triangle"></i>' : 
+            '<i class="fas fa-crop-alt"></i>';
+        
+        warningElement.innerHTML = `${icon} <span>${issue.message}</span>`;
+        warningsContainer.appendChild(warningElement);
+    });
+}
+
+// Função para desenhar indicadores visuais de cobertura no canvas
+function drawCoverageIndicators(ctx, coverageInfo) {
+    if (!coverageInfo || coverageInfo.fullyCovered) return;
+    
+    // Desenhar apenas se houver problemas de cobertura
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    
+    // Converter para pixels
+    const bannerWidthPx = cmToPixel(bannerWidth);
+    const bannerHeightPx = cmToPixel(bannerHeight);
+    
+    // Salvar o contexto atual
+    ctx.save();
+    
+    // Estilo para áreas não cobertas
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]);
+    
+    // Desenhar indicadores para áreas não cobertas
+    coverageInfo.issues.filter(issue => issue.type === 'uncovered').forEach(issue => {
+        switch(issue.area) {
+            case 'left':
+                ctx.fillRect(30, 30, coverageInfo.imageBounds.x, bannerHeightPx);
+                ctx.strokeRect(30, 30, coverageInfo.imageBounds.x, bannerHeightPx);
+                break;
+            case 'top':
+                ctx.fillRect(30, 30, bannerWidthPx, coverageInfo.imageBounds.y);
+                ctx.strokeRect(30, 30, bannerWidthPx, coverageInfo.imageBounds.y);
+                break;
+            case 'right':
+                const rightX = 30 + coverageInfo.imageBounds.right;
+                const rightWidth = bannerWidthPx - coverageInfo.imageBounds.right;
+                ctx.fillRect(rightX, 30, rightWidth, bannerHeightPx);
+                ctx.strokeRect(rightX, 30, rightWidth, bannerHeightPx);
+                break;
+            case 'bottom':
+                const bottomY = 30 + coverageInfo.imageBounds.bottom;
+                const bottomHeight = bannerHeightPx - coverageInfo.imageBounds.bottom;
+                ctx.fillRect(30, bottomY, bannerWidthPx, bottomHeight);
+                ctx.strokeRect(30, bottomY, bannerWidthPx, bottomHeight);
+                break;
+        }
+    });
+    
+    // Estilo para áreas de desperdício (overflow)
+    ctx.fillStyle = 'rgba(255, 165, 0, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
+    
+    // Desenhar áreas de overflow
+    const wastedArea = coverageInfo.wastedArea;
+    const imgBounds = coverageInfo.imageBounds;
+    
+    // Área esquerda fora da faixa
+    if (wastedArea.left > 0) {
+        ctx.fillRect(30 + imgBounds.x, 30 + imgBounds.y, wastedArea.left, imgBounds.height);
+        ctx.strokeRect(30 + imgBounds.x, 30 + imgBounds.y, wastedArea.left, imgBounds.height);
+    }
+    
+    // Área superior fora da faixa
+    if (wastedArea.top > 0) {
+        ctx.fillRect(30 + imgBounds.x, 30 + imgBounds.y, imgBounds.width, wastedArea.top);
+        ctx.strokeRect(30 + imgBounds.x, 30 + imgBounds.y, imgBounds.width, wastedArea.top);
+    }
+    
+    // Área direita fora da faixa
+    if (wastedArea.right > 0) {
+        const rightX = 30 + bannerWidthPx;
+        ctx.fillRect(rightX, 30 + imgBounds.y, wastedArea.right, imgBounds.height);
+        ctx.strokeRect(rightX, 30 + imgBounds.y, wastedArea.right, imgBounds.height);
+    }
+    
+    // Área inferior fora da faixa
+    if (wastedArea.bottom > 0) {
+        const bottomY = 30 + bannerHeightPx;
+        ctx.fillRect(30 + imgBounds.x, bottomY, imgBounds.width, wastedArea.bottom);
+        ctx.strokeRect(30 + imgBounds.x, bottomY, imgBounds.width, wastedArea.bottom);
+    }
+    
+    // Restaurar o contexto
+    ctx.restore();
+}
 
 // Função para mostrar o modal de progresso
 function showProgressModal() {
@@ -1530,216 +1613,13 @@ function addPDFMetadata(pdfDoc, pageIndex, totalPages) {
     // - Informações de produção específicas
 }
 
-// Funções para validação de cobertura de imagem
-function checkImageCoverage() {
-    if (!uploadedImage) return null;
-    
-    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
-    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
-    
-    // Converter para pixels
-    const bannerWidthPx = cmToPixel(bannerWidth);
-    const bannerHeightPx = cmToPixel(bannerHeight);
-    
-    // Obter as dimensões e posição atual da imagem
-    const imageBounds = {
-        x: imageX,
-        y: imageY,
-        width: imageWidth,
-        height: imageHeight,
-        right: imageX + imageWidth,
-        bottom: imageY + imageHeight
-    };
-    
-    // Verificar se a imagem cobre completamente a faixa
-    const coverageIssues = [];
-    
-    // Verificar se alguma parte da faixa não está coberta pela imagem
-    if (imageBounds.x > 0) {
-        coverageIssues.push({
-            type: 'uncovered',
-            area: 'left',
-            message: `Área esquerda da faixa não coberta (${(imageBounds.x / cmToPixel(1)).toFixed(1)}cm)`
-        });
-    }
-    
-    if (imageBounds.y > 0) {
-        coverageIssues.push({
-            type: 'uncovered',
-            area: 'top',
-            message: `Área superior da faixa não coberta (${(imageBounds.y / cmToPixel(1)).toFixed(1)}cm)`
-        });
-    }
-    
-    if (imageBounds.right < bannerWidthPx) {
-        coverageIssues.push({
-            type: 'uncovered',
-            area: 'right',
-            message: `Área direita da faixa não coberta (${((bannerWidthPx - imageBounds.right) / cmToPixel(1)).toFixed(1)}cm)`
-        });
-    }
-    
-    if (imageBounds.bottom < bannerHeightPx) {
-        coverageIssues.push({
-            type: 'uncovered',
-            area: 'bottom',
-            message: `Área inferior da faixa não coberta (${((bannerHeightPx - imageBounds.bottom) / cmToPixel(1)).toFixed(1)}cm)`
-        });
-    }
-    
-    // Verificar se parte da imagem está fora da área da faixa (desperdício)
-    const wastedArea = {
-        left: Math.max(0, -imageBounds.x),
-        top: Math.max(0, -imageBounds.y),
-        right: Math.max(0, imageBounds.right - bannerWidthPx),
-        bottom: Math.max(0, imageBounds.bottom - bannerHeightPx)
-    };
-    
-    const totalWastedWidth = wastedArea.left + wastedArea.right;
-    const totalWastedHeight = wastedArea.top + wastedArea.bottom;
-    
-    if (totalWastedWidth > 0 || totalWastedHeight > 0) {
-        const wastedWidthCm = (totalWastedWidth / cmToPixel(1)).toFixed(1);
-        const wastedHeightCm = (totalWastedHeight / cmToPixel(1)).toFixed(1);
-        
-        coverageIssues.push({
-            type: 'overflow',
-            message: `Parte da imagem está fora da área útil (${wastedWidthCm}cm × ${wastedHeightCm}cm)`
-        });
-    }
-    
-    return {
-        fullyCovered: coverageIssues.length === 0,
-        issues: coverageIssues,
-        imageBounds: imageBounds,
-        wastedArea: wastedArea
-    };
-}
+// Remover as funções de interact.js que não serão mais necessárias
+// Remover initializeImageInteraction, dragMoveListener, resizeMoveListener, updateManipulatorPosition
 
-// Função para mostrar avisos de cobertura
-function displayCoverageWarnings(coverageInfo) {
-    // Remover avisos anteriores
-    const existingWarnings = document.querySelectorAll('.coverage-warning');
-    existingWarnings.forEach(warning => warning.remove());
-    
-    if (!coverageInfo || coverageInfo.fullyCovered) return;
-    
-    // Criar contêiner de avisos se não existir
-    let warningsContainer = document.getElementById('coverage-warnings');
-    if (!warningsContainer) {
-        warningsContainer = document.createElement('div');
-        warningsContainer.id = 'coverage-warnings';
-        warningsContainer.className = 'coverage-warnings';
-        
-        // Inserir antes da imagem de upload ou depois do canvas
-        const imageControls = document.querySelector('.image-controls');
-        if (imageControls) {
-            imageControls.parentNode.insertBefore(warningsContainer, imageControls);
-        } else {
-            const canvasContainer = document.querySelector('.canvas-container');
-            canvasContainer.parentNode.insertBefore(warningsContainer, canvasContainer.nextSibling);
-        }
-    } else {
-        // Limpar avisos existentes
-        warningsContainer.innerHTML = '';
-    }
-    
-    // Adicionar cada aviso
-    coverageInfo.issues.forEach(issue => {
-        const warningElement = document.createElement('div');
-        warningElement.className = `coverage-warning ${issue.type}`;
-        
-        // Ícone apropriado para o tipo de aviso
-        const icon = issue.type === 'uncovered' ? 
-            '<i class="fas fa-exclamation-triangle"></i>' : 
-            '<i class="fas fa-crop-alt"></i>';
-        
-        warningElement.innerHTML = `${icon} <span>${issue.message}</span>`;
-        warningsContainer.appendChild(warningElement);
-    });
-}
-
-// Função para desenhar indicadores visuais de cobertura no canvas
-function drawCoverageIndicators(ctx, coverageInfo) {
-    if (!coverageInfo || coverageInfo.fullyCovered) return;
-    
-    // Desenhar apenas se houver problemas de cobertura
-    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
-    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
-    
-    // Converter para pixels
-    const bannerWidthPx = cmToPixel(bannerWidth);
-    const bannerHeightPx = cmToPixel(bannerHeight);
-    
-    // Salvar o contexto atual
-    ctx.save();
-    
-    // Estilo para áreas não cobertas
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
-    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 3]);
-    
-    // Desenhar indicadores para áreas não cobertas
-    coverageInfo.issues.filter(issue => issue.type === 'uncovered').forEach(issue => {
-        switch(issue.area) {
-            case 'left':
-                ctx.fillRect(30, 30, coverageInfo.imageBounds.x, bannerHeightPx);
-                ctx.strokeRect(30, 30, coverageInfo.imageBounds.x, bannerHeightPx);
-                break;
-            case 'top':
-                ctx.fillRect(30, 30, bannerWidthPx, coverageInfo.imageBounds.y);
-                ctx.strokeRect(30, 30, bannerWidthPx, coverageInfo.imageBounds.y);
-                break;
-            case 'right':
-                const rightX = 30 + coverageInfo.imageBounds.right;
-                const rightWidth = bannerWidthPx - coverageInfo.imageBounds.right;
-                ctx.fillRect(rightX, 30, rightWidth, bannerHeightPx);
-                ctx.strokeRect(rightX, 30, rightWidth, bannerHeightPx);
-                break;
-            case 'bottom':
-                const bottomY = 30 + coverageInfo.imageBounds.bottom;
-                const bottomHeight = bannerHeightPx - coverageInfo.imageBounds.bottom;
-                ctx.fillRect(30, bottomY, bannerWidthPx, bottomHeight);
-                ctx.strokeRect(30, bottomY, bannerWidthPx, bottomHeight);
-                break;
-        }
-    });
-    
-    // Estilo para áreas de desperdício (overflow)
-    ctx.fillStyle = 'rgba(255, 165, 0, 0.2)';
-    ctx.strokeStyle = 'rgba(255, 165, 0, 0.8)';
-    
-    // Desenhar áreas de overflow
-    const wastedArea = coverageInfo.wastedArea;
-    const imgBounds = coverageInfo.imageBounds;
-    
-    // Área esquerda fora da faixa
-    if (wastedArea.left > 0) {
-        ctx.fillRect(30 + imgBounds.x, 30 + imgBounds.y, wastedArea.left, imgBounds.height);
-        ctx.strokeRect(30 + imgBounds.x, 30 + imgBounds.y, wastedArea.left, imgBounds.height);
-    }
-    
-    // Área superior fora da faixa
-    if (wastedArea.top > 0) {
-        ctx.fillRect(30 + imgBounds.x, 30 + imgBounds.y, imgBounds.width, wastedArea.top);
-        ctx.strokeRect(30 + imgBounds.x, 30 + imgBounds.y, imgBounds.width, wastedArea.top);
-    }
-    
-    // Área direita fora da faixa
-    if (wastedArea.right > 0) {
-        const rightX = 30 + bannerWidthPx;
-        ctx.fillRect(rightX, 30 + imgBounds.y, wastedArea.right, imgBounds.height);
-        ctx.strokeRect(rightX, 30 + imgBounds.y, wastedArea.right, imgBounds.height);
-    }
-    
-    // Área inferior fora da faixa
-    if (wastedArea.bottom > 0) {
-        const bottomY = 30 + bannerHeightPx;
-        ctx.fillRect(30 + imgBounds.x, bottomY, imgBounds.width, wastedArea.bottom);
-        ctx.strokeRect(30 + imgBounds.x, bottomY, imgBounds.width, wastedArea.bottom);
-    }
-    
-    // Restaurar o contexto
-    ctx.restore();
-}
+// Inicializar
+window.addEventListener("load", () => {
+    loadThemePreference();
+    updateMargin(); // Inicializa o valor da margem
+    updateZoom(); // Inicializa o valor do zoom
+    updateVisualization();
+});

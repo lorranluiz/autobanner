@@ -363,42 +363,23 @@ input:focus {
 
 .image-controls {
     display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+    padding: 15px;
+    background-color: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.image-buttons {
+    display: flex;
     justify-content: flex-end;
     gap: 10px;
 }
 
-/* Estilos para manipulação da imagem */
+/* Remover os estilos dos manipuladores de redimensionamento que não serão mais usados */
 .resize-handle {
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    background-color: var(--accent-color);
-    border: 2px solid white;
-    border-radius: 50%;
-}
-
-.resize-handle.tl { 
-    top: -5px;
-    left: -5px;
-    cursor: nw-resize;
-}
-
-.resize-handle.tr { 
-    top: -5px;
-    right: -5px;
-    cursor: ne-resize;
-}
-
-.resize-handle.bl { 
-    bottom: -5px;
-    left: -5px;
-    cursor: sw-resize;
-}
-
-.resize-handle.br { 
-    bottom: -5px;
-    right: -5px;
-    cursor: se-resize;
+    display: none;
 }
 
 .advanced-panel {
@@ -528,6 +509,23 @@ input:focus {
 }
 
 .coverage-warning i {
+    font-size: 1.1rem;
+}
+
+.coverage-note {
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    background-color: rgba(16, 163, 127, 0.1);
+    border-left: 4px solid var(--accent-color);
+    color: var(--accent-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.coverage-note i {
     font-size: 1.1rem;
 }
 

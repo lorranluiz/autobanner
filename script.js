@@ -884,7 +884,6 @@ function drawBanner(bannerWidth, bannerHeight) {
     const marginPx = cmToPixel(marginInCm);
     
     // Desenhar as folhas A4
-    let sheetNumber = 1;
     for (let row = 0; row < sheets.vertical; row++) {
         for (let col = 0; col < sheets.horizontal; col++) {
             // Alternar cores para melhor visualização
@@ -904,11 +903,13 @@ function drawBanner(bannerWidth, bannerHeight) {
                 // Adicionar numeração se estiver ativado
                 if (showNumbers) {
                     ctx.fillStyle = ctx.strokeStyle;
-                    ctx.font = '16px Inter';
+                    ctx.font = '12px Inter';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(sheetNumber.toString(), x + remainingWidth / 2, y + remainingHeight / 2);
-                    sheetNumber++;
+                    
+                    // Usar formato L{linha}C{coluna} para identificar as folhas
+                    const sheetLabel = `L${row+1}C${col+1}`;
+                    ctx.fillText(sheetLabel, x + remainingWidth / 2, y + remainingHeight / 2);
                 }
             }
         }
@@ -1958,8 +1959,7 @@ async function generatePDFs() {
         updateProgress("Criando guia de montagem", 95);
         const assemblyGuide = await createAssemblyGuidePDF(sheets);
         
-        // Adicionar o guia aos documentos
-        pdfDocs.push(assemblyGuide);
+        // Adicionar o guia aos documentos        pdfDocs.push(assemblyGuide);
         
         // Compactar PDFs em arquivo ZIP
         updateProgress("Compactandoos arquivos em ZIP", 97);

@@ -2005,7 +2005,7 @@ async function createZipFile(pdfDocs, bannerInfo) {
     // Criar novo objeto ZIP
     const zip = new JSZip();
     
-    // Adicionar cada PDF ao ZIP
+    // Adicionar cada PDF ao ZIP (somente em um local - na raiz)
     for (const pdfDoc of pdfDocs) {
         zip.file(pdfDoc.name, pdfDoc.data);
     }
@@ -2013,14 +2013,6 @@ async function createZipFile(pdfDocs, bannerInfo) {
     // Adicionar arquivo de informações (txt)
     const infoContent = createInfoText(bannerInfo);
     zip.file("informacoes.txt", infoContent);
-    
-    // Criar pasta para PDFs
-    const pdfFolder = zip.folder("arquivos_pdf");
-    
-    // Mover PDFs para a pasta
-    for (const pdfDoc of pdfDocs) {
-        pdfFolder.file(pdfDoc.name, pdfDoc.data);
-    }
     
     // Gerar o arquivo ZIP
     const zipContent = await zip.generateAsync({

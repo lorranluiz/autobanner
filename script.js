@@ -317,12 +317,100 @@ function updateZoom() {
     updateVisualization();
 }
 
-// Função para exportar o canvas como PNG
+// Função para desenhar uma versão limpa da faixa (sem réguas, numeração ou alertas)
+function drawCleanBanner(ctx, canvasWidth, canvasHeight, bannerWidth, bannerHeight) {
+    // Obter cores baseadas no tema atual
+    const colors = getThemeColors();
+    
+    // Converter dimensões para pixels considerando zoom
+    const widthPx = cmToPixel(bannerWidth);
+    const heightPx = cmToPixel(bannerHeight);
+    
+    // Limpar o canvas
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    // Desenhar a faixa (com um pequeno deslocamento para margem)
+    ctx.fillStyle = colors.bannerColor;
+    ctx.fillRect(30, 30, widthPx, heightPx);
+    
+    // Desenhar a borda da faixa
+    ctx.strokeStyle = colors.bannerBorderColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(30, 30, widthPx, heightPx);
+    
+    // Desenhar a imagem se existir
+    if (uploadedImage) {
+        ctx.save();
+        // Aplicar clipping para manter a imagem dentro da faixa
+        ctx.beginPath();
+        ctx.rect(30, 30, widthPx, heightPx);
+        ctx.clip();
+        
+        // Calcular posição centralizada
+        const centerX = 30 + (widthPx / 2) + imageX - (imageWidth / 2);
+        const centerY = 30 + (heightPx / 2) + imageY - (imageHeight / 2);
+        
+        // Desenhar a imagem centralizada + offset
+        ctx.drawImage(uploadedImage, centerX, centerY, imageWidth, imageHeight);
+        ctx.restore();
+    }
+    
+    // Calcular quantas folhas cabem
+    const sheets = calculateSheets(bannerWidth, bannerHeight);
+    
+    // Obter dimensões da folha A4
+    const a4 = getA4Dimensions();
+    const marginInCm = sheetMargin * MM_TO_CM;
+    
+    // Converter dimensões para pixels considerando zoom
+    const a4WidthPx = cmToPixel(a4.width);
+    const a4HeightPx = cmToPixel(a4.height);
+    const marginPx = cmToPixel(marginInCm);
+    
+    // Desenhar apenas as linhas das folhas A4, sem numeração
+    for (let row = 0; row < sheets.vertical; row++) {
+        for (let col = 0; col < sheets.horizontal; col++) {
+            // Alternar cores para melhor visualização
+            ctx.strokeStyle = (row + col) % 2 === 0 ? colors.sheetBorderColor : colors.sheetAltBorderColor;
+            ctx.lineWidth = 1;
+            
+            const x = 30 + col * (a4WidthPx - marginPx);
+            const y = 30 + row * (a4HeightPx - marginPx);
+            
+            // Desenhar apenas a parte da folha que cabe na faixa
+            const remainingWidth = Math.min(a4WidthPx, widthPx - col * (a4WidthPx - marginPx));
+            const remainingHeight = Math.min(a4HeightPx, heightPx - row * (a4HeightPx - marginPx));
+            
+            if (remainingWidth > 0 && remainingHeight > 0) {
+                ctx.strokeRect(x, y, remainingWidth, remainingHeight);
+                // Não desenhamos a numeração aqui, mesmo se ativada
+            }
+        }
+    }
+}
+
+// Função para exportar o canvas como PNG (modificada)
 function exportAsPNG() {
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    
+    // Converter dimensões para pixels considerando zoom
+    const widthPx = cmToPixel(bannerWidth);
+    const heightPx = cmToPixel(bannerHeight);
+    
+    // Criar um canvas temporário para a exportação
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = widthPx + 60; // Adicionando margem
+    tempCanvas.height = heightPx + 60; // Adicionando margem
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Desenhar a versão limpa da faixa no canvas temporário
+    drawCleanBanner(tempCtx, tempCanvas.width, tempCanvas.height, bannerWidth, bannerHeight);
+    
     // Criar um link temporário
     const link = document.createElement('a');
     link.download = 'distribuicao-folhas.png';
-    link.href = canvas.toDataURL('image/png');
+    link.href = tempCanvas.toDataURL('image/png');
     
     // Simular um clique no link
     document.body.appendChild(link);
@@ -1829,93 +1917,93 @@ async function createAssemblyGuidePDF(sheets) {
         size: 16,
         font: boldFont,
         color: accentColor,
-    });
-    
-    yPos -= 30;
-    
-    const instructions = [
-        '1. Imprima todas as folhas PDF em papel A4.',
-        '2. Corte as folhas seguindo as marcas de corte (linhas nos cantos).',
-        '3. Disponha as folhas seguindo a numeração, da esquerda para a direita e de cima para baixo.',
-        '4. Para melhor alinhamento, use as marcas de corte para posicionar as folhas.',
-        '5. Fixe as folhas com fita adesiva, preferencialmente no verso.',
-        '6. Para maior durabilidade, considere plastificar a faixa após a montagem.'
-    ];
-    
-    for (let instruction of instructions) {
-        page.drawText(instruction, {
-            x: margin,
-            y: yPos,
-            size: 12,
-            font: helveticaFont,
-            color: textColor,
-        });
-        yPos -= 20;
-    }
-    
-    yPos -= 20;
-    
-    // Adicionar diagrama de montagem
-    page.drawText('Diagrama de Montagem', {
-        x: margin,
-        y: yPos,
-        size: 16,
-        font: boldFont,
-        color: accentColor,
-    });
-    
-    yPos -= 30;
-    
-    // Desenhar grade representando folhas
-    const gridSize = Math.min(30, Math.floor(contentWidth / sheets.horizontal));
-    const gridWidth = gridSize * sheets.horizontal;
-    const gridHeight = gridSize * sheets.vertical;
-    const gridX = margin + (contentWidth - gridWidth) / 2;
-    let gridY = yPos - gridHeight;
-    
-    // Desenhar cada célula da grade
-    for (let row = 0; row < sheets.vertical; row++) {
-        for (let col = 0; col < sheets.horizontal; col++) {
-            const cellX = gridX + (col * gridSize);
-            const cellY = gridY + ((sheets.vertical - row - 1) * gridSize);
-            
-            // Desenhar retângulo para célula
-            page.drawRectangle({
-                x: cellX,
-                y: cellY,
-                width: gridSize,
-                height: gridSize,
-                borderColor: accentColor,
-                borderWidth: 1,
-            });
-            
-            // Adicionar número da folha
-            const sheetNumber = row * sheets.horizontal + col + 1;
-            const numText = String(sheetNumber);
-            const textWidth = helveticaFont.widthOfTextAtSize(numText, 10);
-            
-            page.drawText(numText, {
-                x: cellX + (gridSize - textWidth) / 2,
-                y: cellY + (gridSize - 10) / 2,
-                size: 10,
-                font: boldFont,
+           });
+        
+        yPos -= 30;
+        
+        const instructions = [
+            '1. Imprima todas as folhas PDF em tamanho A4.',
+            '2. Corte as folhas seguindo as marcas de corte (linhas nos cantos).',
+            '3. Disponha as folhas seguindo a numeração, da esquerda para a direita e de cima para baixo.',
+            '4. Para melhor alinhamento, use as marcas de corte para posicionar as folhas.',
+            '5. Fixe as folhas com fita adesiva, preferencialmente no verso.',
+            '6. Para maior durabilidade, considere plastificar a faixa após a montagem.'
+        ];
+        
+        for (let instruction of instructions) {
+            page.drawText(instruction, {
+                x: margin,
+                y: yPos,
+                size: 12,
+                font: helveticaFont,
                 color: textColor,
             });
+            yPos -= 20;
         }
-    }
-    
-    yPos = gridY - 40;
-    
-    // Adicionar data de criação
-    const date = new Date().toLocaleDateString();
-    page.drawText(`Guia gerado em: ${date}`, {
-        x: margin,
-        y: yPos,
-        size: 10,
-        font: helveticaFont,
-        color: rgb(0.5, 0.5, 0.5),
-    });
-    
+        
+        yPos -= 20;
+        
+        // Adicionar diagrama de montagem
+        page.drawText('Diagrama de Montagem', {
+            x: margin,
+            y: yPos,
+            size: 16,
+            font: boldFont,
+            color: accentColor,
+        });
+        
+        yPos -= 30;
+        
+        // Desenhar grade representando folhas
+        const gridSize = Math.min(30, Math.floor(contentWidth / sheets.horizontal));
+        const gridWidth = gridSize * sheets.horizontal;
+        const gridHeight = gridSize * sheets.vertical;
+        const gridX = margin + (contentWidth - gridWidth) / 2;
+        let gridY = yPos - gridHeight;
+        
+        // Desenhar cada célula da grade
+        for (let row = 0; row < sheets.vertical; row++) {
+            for (let col = 0; col < sheets.horizontal; col++) {
+                const cellX = gridX + (col * gridSize);
+                const cellY = gridY + ((sheets.vertical - row - 1) * gridSize);
+                
+                // Desenhar retângulo para célula
+                page.drawRectangle({
+                    x: cellX,
+                    y: cellY,
+                    width: gridSize,
+                    height: gridSize,
+                    borderColor: accentColor,
+                    borderWidth: 1,
+                });
+                
+                // Adicionar número da folha
+                const sheetNumber = row * sheets.horizontal + col + 1;
+                const numText = String(sheetNumber);
+                const textWidth = helveticaFont.widthOfTextAtSize(numText, 10);
+                
+                page.drawText(numText, {
+                    x: cellX + (gridSize - textWidth) / 2,
+                    y: cellY + (gridSize - 10) / 2,
+                    size: 10,
+                    font: boldFont,
+                    color: textColor,
+                });
+            }
+        }
+        
+        yPos = gridY - 40;
+        
+        // Adicionar data de criação
+        const date = new Date().toLocaleDateString();
+        page.drawText(`Guia gerado em: ${date}`, {
+            x: margin,
+            y: yPos,
+            size: 10,
+            font: helveticaFont,
+            color: rgb(0.5, 0.5, 0.5),
+        });
+        
     // Salvar o PDF como array de bytes
     const pdfBytes = await pdfDoc.save();
     
@@ -1947,7 +2035,6 @@ async function createZipFile(pdfDocs, bannerInfo) {
         pdfFolder.file(pdfDoc.name, pdfDoc.data);
     }
     
-    // Gerar o arquivo```javascript
     // Gerar o arquivo ZIP
     const zipContent = await zip.generateAsync({
         type: "blob",

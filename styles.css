@@ -259,18 +259,15 @@ input:focus {
     margin-right: 8px;
 }
 
+/* Estilos para os manipuladores da imagem */
 .canvas-container {
-    width: 100%;
-    overflow: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 15px;
-    background-color: var(--bg-secondary);
+    position: relative;
 }
 
 #banner-canvas {
     display: block;
     margin: 0 auto;
+    cursor: default;
 }
 
 .actions-container {

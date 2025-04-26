@@ -84,6 +84,11 @@ let imageScale = 1;
 let originalImageWidth = 0;
 let originalImageHeight = 0;
 let isDraggingImage = false;
+let isResizingImage = false;
+let activeHandle = null;
+let lastMouseX = 0;
+let lastMouseY = 0;
+let canvasRect = null;
 
 // Função para obter cores baseadas no tema atual
 function getThemeColors() {
@@ -518,6 +523,9 @@ function handleImageUpload(file) {
             
             // Desenhar a imagem
             updateVisualization();
+            
+            // Inicializar interação com o canvas se ainda não foi feito
+            initCanvasInteraction();
         };
         uploadedImage.src = e.target.result;
     };
@@ -704,6 +712,9 @@ function drawBanner(bannerWidth, bannerHeight) {
         if (coverageInfo && !coverageInfo.fullyCovered) {
             drawCoverageIndicators(ctx, coverageInfo);
         }
+        
+        // Desenhar manipuladores de interação diretos
+        drawImageHandles(ctx, centerX, centerY, imageWidth, imageHeight);
     }
     
     // Calcular quantas folhas cabem
@@ -756,7 +767,310 @@ function drawBanner(bannerWidth, bannerHeight) {
     paperEfficiencyElement.textContent = `${sheets.efficiency}%`;
 }
 
-// Funções para validação de cobertura de imagem
+// Função para desenhar os manipuladores da imagem
+function drawImageHandles(ctx, x, y, width, height) {
+    // Desenhar borda pontilhada ao redor da imagem
+    ctx.save();
+    ctx.strokeStyle = 'rgba(16, 163, 127, 0.8)'; // Cor do tema
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]);
+    ctx.strokeRect(x, y, width, height);
+    
+    // Desenhar manipuladores nos cantos
+    const handleSize = 10;
+    const handles = [
+        { x: x, y: y, cursor: 'nw-resize', position: 'tl' },            // Superior esquerdo
+        { x: x + width, y: y, cursor: 'ne-resize', position: 'tr' },    // Superior direito
+        { x: x, y: y + height, cursor: 'sw-resize', position: 'bl' },   // Inferior esquerdo
+        { x: x + width, y: y + height, cursor: 'se-resize', position: 'br' } // Inferior direito
+    ];
+    
+    handles.forEach(handle => {
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'rgba(16, 163, 127, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(handle.x, handle.y, handleSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    });
+    
+    ctx.restore();
+}
+
+// Iniciar a interação com o canvas
+function initCanvasInteraction() {
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+}
+
+// Função para lidar com o evento mousedown no canvas
+function handleMouseDown(e) {
+    if (!uploadedImage) return;
+    
+    canvasRect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - canvasRect.left;
+    const mouseY = e.clientY - canvasRect.top;
+    
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    const widthPx = cmToPixel(bannerWidth);
+    const heightPx = cmToPixel(bannerHeight);
+    
+    // Calcular posição centralizada da imagem
+    const centerX = 30 + (widthPx / 2) + imageX - (imageWidth / 2);
+    const centerY = 30 + (heightPx / 2) + imageY - (imageHeight / 2);
+    
+    // Verificar se clicou em algum manipulador
+    const handleSize = 15; // Tamanho de detecção um pouco maior que o visual
+    const handles = [
+        { x: centerX, y: centerY, cursor: 'nw-resize', position: 'tl' },
+        { x: centerX + imageWidth, y: centerY, cursor: 'ne-resize', position: 'tr' },
+        { x: centerX, y: centerY + imageHeight, cursor: 'sw-resize', position: 'bl' },
+        { x: centerX + imageWidth, y: centerY + imageHeight, cursor: 'se-resize', position: 'br' }
+    ];
+    
+    for (const handle of handles) {
+        const distance = Math.sqrt(
+            Math.pow(mouseX - handle.x, 2) + 
+            Math.pow(mouseY - handle.y, 2)
+        );
+        
+        if (distance <= handleSize) {
+            isResizingImage = true;
+            activeHandle = handle.position;
+            canvas.style.cursor = handle.cursor;
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
+            return;
+        }
+    }
+    
+    // Verificar se clicou dentro da imagem
+    if (mouseX >= centerX && mouseX <= centerX + imageWidth &&
+        mouseY >= centerY && mouseY <= centerY + imageHeight) {
+        isDraggingImage = true;
+        canvas.style.cursor = 'move';
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+    }
+}
+
+// Função para lidar com o evento mousemove no canvas
+function handleMouseMove(e) {
+    if (!uploadedImage) return;
+    
+    if (!canvasRect) {
+        canvasRect = canvas.getBoundingClientRect();
+    }
+    
+    const mouseX = e.clientX - canvasRect.left;
+    const mouseY = e.clientY - canvasRect.top;
+    
+    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    const widthPx = cmToPixel(bannerWidth);
+    const heightPx = cmToPixel(bannerHeight);
+    
+    // Mover a imagem
+    if (isDraggingImage) {
+        const deltaX = mouseX - lastMouseX;
+        const deltaY = mouseY - lastMouseY;
+        
+        // Atualizar a posição da imagem
+        imageX += deltaX;
+        imageY += deltaY;
+        
+        // Atualizar últimas posições do mouse
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+        
+        // Redesenhar
+        updateVisualization();
+        return;
+    }
+    
+    // Redimensionar a imagem
+    if (isResizingImage) {
+        const deltaX = mouseX - lastMouseX;
+        const deltaY = mouseY - lastMouseY;
+        const aspectRatio = originalImageWidth / originalImageHeight;
+        
+        // Ajustar tamanho com base no manipulador ativo
+        switch(activeHandle) {
+            case 'br': // Inferior direito
+                // Manter proporção
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    imageWidth += deltaX;
+                    imageHeight = imageWidth / aspectRatio;
+                } else {
+                    imageHeight += deltaY;
+                    imageWidth = imageHeight * aspectRatio;
+                }
+                break;
+                
+            case 'bl': // Inferior esquerdo
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    imageWidth -= deltaX;
+                    imageHeight = imageWidth / aspectRatio;
+                    imageX += deltaX;
+                } else {
+                    imageHeight += deltaY;
+                    imageWidth = imageHeight * aspectRatio;
+                }
+                break;
+                
+            case 'tr': // Superior direito
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    imageWidth += deltaX;
+                    imageHeight = imageWidth / aspectRatio;
+                } else {
+                    imageHeight -= deltaY;
+                    imageWidth = imageHeight * aspectRatio;
+                    imageY += deltaY;
+                }
+                break;
+                
+            case 'tl': // Superior esquerdo
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    imageWidth -= deltaX;
+                    imageHeight = imageWidth / aspectRatio;
+                    imageX += deltaX;
+                } else {
+                    imageHeight -= deltaY;
+                    imageWidth = imageHeight * aspectRatio;
+                    imageY += deltaY;
+                }
+                break;
+        }
+        
+        // Atualizar escala
+        imageScale = imageWidth / originalImageWidth;
+        
+        // Atualizar últimas posições do mouse
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+        
+        // Redesenhar
+        updateVisualization();
+        return;
+    }
+    
+    // Alterar cursor com base na posição do mouse
+    const centerX = 30 + (widthPx / 2) + imageX - (imageWidth / 2);
+    const centerY = 30 + (heightPx / 2) + imageY - (imageHeight / 2);
+    
+    // Verificar se o mouse está sobre algum manipulador
+    const handleSize = 15;
+    const handles = [
+        { x: centerX, y: centerY, cursor: 'nw-resize' },
+        { x: centerX + imageWidth, y: centerY, cursor: 'ne-resize' },
+        { x: centerX, y: centerY + imageHeight, cursor: 'sw-resize' },
+        { x: centerX + imageWidth, y: centerY + imageHeight, cursor: 'se-resize' }
+    ];
+    
+    let overHandle = false;
+    for (const handle of handles) {
+        const distance = Math.sqrt(
+            Math.pow(mouseX - handle.x, 2) + 
+            Math.pow(mouseY - handle.y, 2)
+        );
+        
+        if (distance <= handleSize) {
+            canvas.style.cursor = handle.cursor;
+            overHandle = true;
+            break;
+        }
+    }
+    
+    // Verificar se está sobre a imagem
+    if (!overHandle) {
+        if (mouseX >= centerX && mouseX <= centerX + imageWidth &&
+            mouseY >= centerY && mouseY <= centerY + imageHeight) {
+            canvas.style.cursor = 'move';
+        } else {
+            canvas.style.cursor = 'default';
+        }
+    }
+}
+
+// Função para lidar com o evento mouseup
+function handleMouseUp() {
+    if (isDraggingImage || isResizingImage) {
+        // Atualizar os sliders com os novos valores
+        updateImageSliders();
+    }
+    
+    isDraggingImage = false;
+    isResizingImage = false;
+    activeHandle = null;
+    canvas.style.cursor = 'default';
+}
+
+// Modificar a função handleImageUpload para inicializar a interação
+function handleImageUpload(file) {
+    if (!file.type.match('image.*')) {
+        alert('Por favor, selecione uma imagem.');
+        return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+        uploadedImage = new Image();
+        uploadedImage.onload = () => {
+            // Calcular dimensões iniciais mantendo proporção
+            originalImageWidth = uploadedImage.width;
+            originalImageHeight = uploadedImage.height;
+            
+            // Ajustar à faixa (80% do tamanho da faixa como padrão)
+            const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+            const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+            
+            // Converter para pixels
+            const bannerWidthPx = cmToPixel(bannerWidth);
+            const bannerHeightPx = cmToPixel(bannerHeight);
+            
+            // Calcular escala inicial (80% do tamanho da faixa)
+            const widthScale = (bannerWidthPx * 0.8) / originalImageWidth;
+            const heightScale = (bannerHeightPx * 0.8) / originalImageHeight;
+            imageScale = Math.min(widthScale, heightScale);
+            
+            imageWidth = originalImageWidth * imageScale;
+            imageHeight = originalImageHeight * imageScale;
+            
+            // Centralizar na faixa
+            imageX = 0; // Centralizado
+            imageY = 0; // Centralizado
+            
+            // Adicionar inicialização dos sliders
+            imageXSlider.value = 0;
+            imageYSlider.value = 0;
+            imageScaleSlider.value = 80;
+            
+            // Atualizar textos dos valores
+            imageXValue.textContent = "0%";
+            imageYValue.textContent = "0%";
+            imageScaleValue.textContent = "80%";
+            
+            // Mostrar controles e atualizar canvas
+            imageControls.style.display = 'flex';
+            dropArea.style.display = 'none';
+            
+            // Desenhar a imagem
+            updateVisualization();
+            
+            // Inicializar interação com o canvas se ainda não foi feito
+            initCanvasInteraction();
+        };
+        uploadedImage.src = e.target.result;
+    };
+    
+    reader.readAsDataURL(file);
+}
+
+// Função para validar se a imagem cobre toda a área da faixa
 function checkImageCoverage() {
     if (!uploadedImage) return null;
     
@@ -1585,9 +1899,6 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Adicionar event listener para o botão de geração de PDF
-generatePdfButton.addEventListener('click', generatePDFs);
-
 // Função para simular conversão de cores RGB para CMYK
 // Na prática, seria usada uma biblioteca real de gerenciamento de cores
 function simulateCMYKConversion() {
@@ -1622,4 +1933,5 @@ window.addEventListener("load", () => {
     updateMargin(); // Inicializa o valor da margem
     updateZoom(); // Inicializa o valor do zoom
     updateVisualization();
+    initCanvasInteraction();
 });

@@ -90,6 +90,128 @@ let lastMouseX = 0;
 let lastMouseY = 0;
 let canvasRect = null;
 
+// Variáveis para armazenamento de imagens
+let db;
+const DB_NAME = 'autobannerDB';
+const STORE_NAME = 'imageStore';
+const IMAGE_KEY = 'lastImage';
+const IMAGE_CONFIG_KEY = 'imageConfig';
+
+// Função para inicializar o banco de dados IndexedDB
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+        
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            resolve(db);
+        };
+        
+        request.onerror = (event) => {
+            console.error('Erro ao abrir o banco de dados:', event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+// Função para salvar o estado da imagem e suas configurações
+function saveImageState() {
+    if (!uploadedImage) return;
+    
+    // Salvar configurações da imagem no localStorage
+    const imageConfig = {
+        imageX: imageX,
+        imageY: imageY,
+        imageScale: imageScale,
+        originalImageWidth: originalImageWidth,
+        originalImageHeight: originalImageHeight
+    };
+    
+    localStorage.setItem(IMAGE_CONFIG_KEY, JSON.stringify(imageConfig));
+    
+    // Salvar a imagem como base64 no IndexedDB
+    if (db) {
+        // Criar um canvas temporário para gerar a imagem base64
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = uploadedImage.width;
+        tempCanvas.height = uploadedImage.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(uploadedImage, 0, 0);
+        
+        try {
+            const imageBase64 = tempCanvas.toDataURL('image/png');
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            store.put(imageBase64, IMAGE_KEY);
+        } catch (e) {
+            console.error("Erro ao salvar imagem:", e);
+            // Ignorar silenciosamente o erro
+        }
+    }
+}
+
+// Função para carregar a última imagem e suas configurações
+function loadImageState() {
+    // Tentar carregar configurações da imagem
+    const configString = localStorage.getItem(IMAGE_CONFIG_KEY);
+    if (!configString) return;
+    
+    let imageConfig;
+    try {
+        imageConfig = JSON.parse(configString);
+    } catch (e) {
+        return;
+    }
+    
+    // Carregar a imagem do IndexedDB
+    if (db) {
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(IMAGE_KEY);
+        
+        request.onsuccess = (event) => {
+            const imageBase64 = event.target.result;
+            if (!imageBase64) return;
+            
+            uploadedImage = new Image();
+            uploadedImage.onload = () => {
+                // Restaurar dimensões originais e configurações
+                originalImageWidth = imageConfig.originalImageWidth;
+                originalImageHeight = imageConfig.originalImageHeight;
+                imageX = imageConfig.imageX;
+                imageY = imageConfig.imageY;
+                imageScale = imageConfig.imageScale;
+                
+                // Calcular dimensões baseadas na escala
+                imageWidth = originalImageWidth * imageScale;
+                imageHeight = originalImageHeight * imageScale;
+                
+                // Atualizar sliders
+                updateImageSliders();
+                
+                // Mostrar controles e atualizar canvas
+                imageControls.style.display = 'flex';
+                dropArea.style.display = 'none';
+                
+                updateVisualization();
+            };
+            uploadedImage.src = imageBase64;
+        };
+        
+        request.onerror = (event) => {
+            console.error('Erro ao carregar imagem:', event.target.error);
+            // Ignorar silenciosamente o erro
+        };
+    }
+}
+
 // Função para obter cores baseadas no tema atual
 function getThemeColors() {
     const isDarkMode = document.documentElement.classList.contains('dark-mode');
@@ -253,10 +375,12 @@ function saveConfiguration() {
 }
 
 // Função para carregar configuração
-function loadConfiguration() {
+function loadConfiguration(showAlerts = true) {
     const configString = localStorage.getItem('bannerConfig');
     if (!configString) {
-        alert('Nenhuma configuração salva encontrada!');
+        if (showAlerts) {
+            alert('Nenhuma configuração salva encontrada!');
+        }
         return;
     }
     
@@ -287,9 +411,14 @@ function loadConfiguration() {
         }
         
         updateVisualization();
-        alert('Configuração carregada com sucesso!');
+        
+        if (showAlerts) {
+            alert('Configuração carregada com sucesso!');
+        }
     } catch (error) {
-        alert('Erro ao carregar configuração!');
+        if (showAlerts) {
+            alert('Erro ao carregar configuração!');
+        }
         console.error(error);
     }
 }
@@ -431,7 +560,7 @@ toggleAdvancedButton.addEventListener("click", toggleAdvancedOptions);
 printMarginInput.addEventListener("input", updatePrintMargin);
 overlapInput.addEventListener("input", updateOverlap);
 saveConfigButton.addEventListener("click", saveConfiguration);
-loadConfigButton.addEventListener("click", loadConfiguration);
+loadConfigButton.addEventListener("click", () => loadConfiguration(true));
 generateGuideButton.addEventListener("click", generateMountingGuide);
 
 // Event listeners para os sliders de imagem
@@ -524,8 +653,8 @@ function handleImageUpload(file) {
             // Desenhar a imagem
             updateVisualization();
             
-            // Inicializar interação com o canvas se ainda não foi feito
-            initCanvasInteraction();
+            // Salvar o estado da imagem carregada
+            saveImageState();
         };
         uploadedImage.src = e.target.result;
     };
@@ -587,6 +716,9 @@ function resetImage() {
         // Atualizar sliders e visualização
         updateImageSliders();
         updateVisualization();
+        
+        // Salvar estado da imagem após redefinir
+        saveImageState();
     }
 }
 
@@ -596,6 +728,19 @@ function removeImage() {
     fileInput.value = '';
     imageControls.style.display = 'none';
     dropArea.style.display = 'block';
+    
+    // Remover a imagem e configurações do armazenamento
+    if (db) {
+        try {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            store.delete(IMAGE_KEY);
+        } catch (e) {
+            // Ignorar erros silenciosamente
+        }
+    }
+    localStorage.removeItem(IMAGE_CONFIG_KEY);
+    
     updateVisualization();
 }
 
@@ -615,6 +760,9 @@ function updateImageX() {
     
     // Chamada para atualizar a visualização
     updateVisualization();
+    
+    // Salvar estado da imagem
+    saveImageState();
 }
 
 // Função para atualizar a posição Y da imagem
@@ -633,6 +781,9 @@ function updateImageY() {
     
     // Chamada para atualizar a visualização
     updateVisualization();
+    
+    // Salvar estado da imagem
+    saveImageState();
 }
 
 // Função para atualizar a escala da imagem
@@ -658,6 +809,9 @@ function updateImageScale() {
     
     // Chamada para atualizar a visualização
     updateVisualization();
+    
+    // Salvar estado da imagem
+    saveImageState();
 }
 
 // Função aprimorada para desenhar a faixa e as folhas A4
@@ -1000,74 +1154,15 @@ function handleMouseUp() {
     if (isDraggingImage || isResizingImage) {
         // Atualizar os sliders com os novos valores
         updateImageSliders();
+        
+        // Salvar o estado da imagem
+        saveImageState();
     }
     
     isDraggingImage = false;
     isResizingImage = false;
     activeHandle = null;
     canvas.style.cursor = 'default';
-}
-
-// Modificar a função handleImageUpload para inicializar a interação
-function handleImageUpload(file) {
-    if (!file.type.match('image.*')) {
-        alert('Por favor, selecione uma imagem.');
-        return;
-    }
-
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-        uploadedImage = new Image();
-        uploadedImage.onload = () => {
-            // Calcular dimensões iniciais mantendo proporção
-            originalImageWidth = uploadedImage.width;
-            originalImageHeight = uploadedImage.height;
-            
-            // Ajustar à faixa (80% do tamanho da faixa como padrão)
-            const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
-            const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
-            
-            // Converter para pixels
-            const bannerWidthPx = cmToPixel(bannerWidth);
-            const bannerHeightPx = cmToPixel(bannerHeight);
-            
-            // Calcular escala inicial (80% do tamanho da faixa)
-            const widthScale = (bannerWidthPx * 0.8) / originalImageWidth;
-            const heightScale = (bannerHeightPx * 0.8) / originalImageHeight;
-            imageScale = Math.min(widthScale, heightScale);
-            
-            imageWidth = originalImageWidth * imageScale;
-            imageHeight = originalImageHeight * imageScale;
-            
-            // Centralizar na faixa
-            imageX = 0; // Centralizado
-            imageY = 0; // Centralizado
-            
-            // Adicionar inicialização dos sliders
-            imageXSlider.value = 0;
-            imageYSlider.value = 0;
-            imageScaleSlider.value = 80;
-            
-            // Atualizar textos dos valores
-            imageXValue.textContent = "0%";
-            imageYValue.textContent = "0%";
-            imageScaleValue.textContent = "80%";
-            
-            // Mostrar controles e atualizar canvas
-            imageControls.style.display = 'flex';
-            dropArea.style.display = 'none';
-            
-            // Desenhar a imagem
-            updateVisualization();
-            
-            // Inicializar interação com o canvas se ainda não foi feito
-            initCanvasInteraction();
-        };
-        uploadedImage.src = e.target.result;
-    };
-    
-    reader.readAsDataURL(file);
 }
 
 // Função para validar se a imagem cobre toda a área da faixa
@@ -1332,7 +1427,7 @@ async function extractImageParts(totalSheets) {
     // Converter a sangria de mm para cm
     const bleedInCm = BLEED_MM * MM_TO_CM;
     
-    // Resultado para armazenar as partes extraídas
+    // Resultado para armazenar as partes extraídas da imagem
     const imageParts = [];
     
     // Para cada folha, extrair a parte correspondente da imagem
@@ -1828,7 +1923,7 @@ Gerado pela Calculadora de Faixas Web App
 `;
 }
 
-// Atualização final da função generatePDFs
+// Função para gerar PDFs
 async function generatePDFs() {
     // Verificar se há uma imagem carregada
     if (!uploadedImage) {
@@ -1867,7 +1962,7 @@ async function generatePDFs() {
         pdfDocs.push(assemblyGuide);
         
         // Compactar PDFs em arquivo ZIP
-        updateProgress("Compactando arquivos em ZIP", 97);
+        updateProgress("Compactandoos arquivos em ZIP", 97);
         const zipFile = await createZipFile(pdfDocs, bannerInfo);
         
         // Oferecer download do ZIP
@@ -1927,11 +2022,22 @@ function addPDFMetadata(pdfDoc, pageIndex, totalPages) {
 // Remover as funções de interact.js que não serão mais necessárias
 // Remover initializeImageInteraction, dragMoveListener, resizeMoveListener, updateManipulatorPosition
 
-// Inicializar
-window.addEventListener("load", () => {
+// Inicializar - modificado para abrir o banco de dados e carregar a imagem
+window.addEventListener("load", async () => {
     loadThemePreference();
-    updateMargin(); // Inicializa o valor da margem
-    updateZoom(); // Inicializa o valor do zoom
+    // Carregar configurações salvas automaticamente (sem alertas)
+    loadConfiguration(false);
+    updateMargin();
+    updateZoom();
+    
+    // Inicializar o banco de dados e carregar a imagem
+    try {
+        await initDB();
+        loadImageState();
+    } catch (e) {
+        // Ignorar erros silenciosamente
+    }
+    
     updateVisualization();
     initCanvasInteraction();
 });

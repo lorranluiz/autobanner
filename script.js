@@ -1806,9 +1806,9 @@ async function createPDFs(imageParts, totalSheets) {
             // Salvar o PDF como array de bytes
             const pdfBytes = await pdfDoc.save();
             
-            // Adicionar à lista de PDFs
+            // Adicionar à lista de PDFs com nome no formato LxCy
             pdfDocs.push({
-                name: `folha_${String(sheetNumber).padStart(2, '0')}.pdf`,
+                name: `folha_L${part.row+1}C${part.col+1}.pdf`, // Usando formato LxCy para o nome
                 data: pdfBytes,
                 row: part.row,
                 col: part.col
@@ -1911,7 +1911,7 @@ async function createAssemblyGuidePDF(sheets) {
     const instructions = [
         '1. Imprima todas as folhas PDF em tamanho A4.',
         '2. Corte as folhas seguindo as marcas de corte (linhas noscantos).',
-        '3. Disponha as folhas seguindo a numeração, da esquerda para a direita e de cima para baixo.',
+        '3. Disponha as folhas seguindo a numeração, da esquerdapara a direita e de cima para baixo.',
         '4. Para melhor alinhamento, use as marcas de corte para posicionar as folhas.',
         '5. Fixe as folhas com fita adesiva, preferencialmente no verso.',
         '6. Para maior durabilidade, considere plastificar a faixa após a montagem.'

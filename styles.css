@@ -259,15 +259,18 @@ input:focus {
     margin-right: 8px;
 }
 
-/* Estilos para os manipuladores da imagem */
 .canvas-container {
-    position: relative;
+    width: 100%;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 15px;
+    background-color: var(--bg-secondary);
 }
 
 #banner-canvas {
     display: block;
     margin: 0 auto;
-    cursor: default;
 }
 
 .actions-container {
@@ -360,23 +363,59 @@ input:focus {
 
 .image-controls {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 15px;
-    padding: 15px;
-    background-color: var(--bg-secondary);
-    border-radius: 8px;
-}
-
-.image-buttons {
-    display: flex;
     justify-content: flex-end;
     gap: 10px;
 }
 
-/* Remover os estilos dos manipuladores de redimensionamento que não serão mais usados */
+/* Estilos para manipulação da imagem */
 .resize-handle {
-    display: none;
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background-color: var(--accent-color);
+    border: 3px solid white;
+    border-radius: 50%;
+    z-index: 1001;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    pointer-events: all;
+}
+
+.resize-handle:hover {
+    transform: scale(1.2);
+}
+
+.resize-handle.tl { 
+    top: -9px;
+    left: -9px;
+    cursor: nw-resize;
+}
+
+.resize-handle.tr { 
+    top: -9px;
+    right: -9px;
+    cursor: ne-resize;
+}
+
+.resize-handle.bl { 
+    bottom: -9px;
+    left: -9px;
+    cursor: sw-resize;
+}
+
+.resize-handle.br { 
+    bottom: -9px;
+    right: -9px;
+    cursor: se-resize;
+}
+
+/* Adicionar indicador visual durante arrasto/redimensionamento */
+#image-manipulator.dragging {
+    opacity: 0.8;
+    border: 2px solid var(--accent-color);
+}
+
+#image-manipulator.resizing {
+    border: 2px solid var(--accent-color);
 }
 
 .advanced-panel {

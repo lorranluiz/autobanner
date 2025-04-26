@@ -109,10 +109,6 @@
                 <p><i class="fas fa-percentage"></i> Aproveitamento do papel: <span id="paper-efficiency">0%</span></p>
             </div>
             
-            <div class="canvas-container">
-                <canvas id="banner-canvas"></canvas>
-            </div>
-            
             <div class="image-upload-container">
                 <div id="drop-area" class="drop-area">
                     <p><i class="fas fa-cloud-upload-alt"></i></p>
@@ -121,13 +117,51 @@
                 </div>
                 
                 <div id="image-controls" class="image-controls" style="display:none">
-                    <button id="reset-image" class="secondary-button">
-                        <i class="fas fa-undo"></i> Redefinir
-                    </button>
-                    <button id="remove-image" class="secondary-button">
-                        <i class="fas fa-trash"></i> Remover
-                    </button>
+                    <div class="image-sliders">
+                        <div class="slider-group">
+                            <label for="image-x-slider">
+                                <i class="fas fa-arrows-alt-h"></i> Posição Horizontal:
+                            </label>
+                            <div class="range-container">
+                                <input type="range" id="image-x-slider" min="-100" max="100" value="0" class="range-input">
+                                <span id="image-x-value">0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="slider-group">
+                            <label for="image-y-slider">
+                                <i class="fas fa-arrows-alt-v"></i> Posição Vertical:
+                            </label>
+                            <div class="range-container">
+                                <input type="range" id="image-y-slider" min="-100" max="100" value="0" class="range-input">
+                                <span id="image-y-value">0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="slider-group">
+                            <label for="image-scale-slider">
+                                <i class="fas fa-expand-arrows-alt"></i> Tamanho:
+                            </label>
+                            <div class="range-container">
+                                <input type="range" id="image-scale-slider" min="10" max="200" value="80" class="range-input">
+                                <span id="image-scale-value">80%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="image-buttons">
+                        <button id="reset-image" class="secondary-button">
+                            <i class="fas fa-undo"></i> Redefinir
+                        </button>
+                        <button id="remove-image" class="secondary-button">
+                            <i class="fas fa-trash"></i> Remover
+                        </button>
+                    </div>
                 </div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="banner-canvas"></canvas>
             </div>
             
             <div class="actions-container">
@@ -158,5 +192,7 @@
     <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/file-saver/dist/FileSaver.min.js"></script>
     <script src="script.js"></script>
+    <!-- Adicionar o script de rótulos para PDFs -->
+    <script src="pdfLabelsAdder.js"></script>
 </body>
 </html>

@@ -635,6 +635,8 @@ overlapInput.addEventListener("input", updateOverlap);
 saveConfigButton.addEventListener("click", saveConfiguration);
 loadConfigButton.addEventListener("click", () => loadConfiguration(true));
 generateGuideButton.addEventListener("click", generateMountingGuide);
+// Adicionar event listener para o botão de geração de PDF
+generatePdfButton.addEventListener('click', generatePDFs);
 
 // Event listeners para os sliders de imagem
 imageXSlider.addEventListener('input', updateImageX);
@@ -1596,10 +1598,10 @@ async function extractImageParts(totalSheets) {
             
             // Calcular as coordenadas na imagem original
             // Considere a posição e escala atual da imagem
-            const sourceX = imageX + (sheetX * CM_TO_PIXEL * (zoomLevel / 5));
-            const sourceY = imageY + (sheetY * CM_TO_PIXEL * (zoomLevel / 5));
-            const sourceWidth = (a4.width * CM_TO_PIXEL * (zoomLevel / 5));
-            const sourceHeight = (a4.height * CM_TO_PIXEL * (zoomLevel / 5));
+            const sourceX = imageX + cmToPixel(sheetX);
+            const sourceY = imageY + cmToPixel(sheetY);
+            const sourceWidth = cmToPixel(a4.width);
+            const sourceHeight = cmToPixel(a4.height);
             
             // Desenhar a porção da imagem no canvas temporário
             tempCtx.drawImage(
@@ -1908,8 +1910,8 @@ async function createAssemblyGuidePDF(sheets) {
     
     const instructions = [
         '1. Imprima todas as folhas PDF em tamanho A4.',
-        '2. Corte as folhas seguindo as marcas de corte (linhas nos cantos).',
-        '3. Disponha as folhas seguindo a numeração, da esquerda para a direita e de cimapara baixo.',
+        '2. Corte as folhas seguindo as marcas de corte (linhas noscantos).',
+        '3. Disponha as folhas seguindo a numeração, da esquerda para a direita e de cima para baixo.',
         '4. Para melhor alinhamento, use as marcas de corte para posicionar as folhas.',
         '5. Fixe as folhas com fita adesiva, preferencialmente no verso.',
         '6. Para maior durabilidade, considere plastificar a faixa após a montagem.'
@@ -2096,7 +2098,7 @@ async function generatePDFs() {
         
         // Adicionar o guia aos documentos        pdfDocs.push(assemblyGuide);
         
-        // Compactar PDFs em arquivo ZIP
+        // Compactar PDFs em um arquivo ZIP
         updateProgress("Compactandoos arquivos em ZIP", 97);
         const zipFile = await createZipFile(pdfDocs, bannerInfo);
         

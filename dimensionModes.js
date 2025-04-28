@@ -5,6 +5,7 @@
 
 // Estado
 let currentDimensionMode = 'dimensions'; // 'dimensions' ou 'sheets'
+let initializing = true; // Flag para controlar inicialização
 
 /**
  * Inicializa os controles de modo de dimensionamento
@@ -17,6 +18,31 @@ function initDimensionModes() {
     const sheetCountInput = document.getElementById('sheet-count-input');
     const sheetsWidthInput = document.getElementById('sheets-width');
     const sheetsHeightInput = document.getElementById('sheets-height');
+    
+    // Carregar modo salvo, se existir
+    const configString = localStorage.getItem('bannerConfig');
+    if (configString) {
+        try {
+            const config = JSON.parse(configString);
+            if (config.dimensionMode) {
+                currentDimensionMode = config.dimensionMode;
+                // Atualizar interface com base no modo salvo
+                if (currentDimensionMode === 'sheets') {
+                    dimensionModeBtn.classList.remove('active');
+                    sheetCountModeBtn.classList.add('active');
+                    dimensionsInput.classList.remove('active');
+                    sheetCountInput.classList.add('active');
+                } else {
+                    dimensionModeBtn.classList.add('active');
+                    sheetCountModeBtn.classList.remove('active');
+                    dimensionsInput.classList.add('active');
+                    sheetCountInput.classList.remove('active');
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao carregar modo de dimensionamento:", e);
+        }
+    }
 
     // Configurar event listeners
     dimensionModeBtn.addEventListener('click', () => switchMode('dimensions'));
@@ -28,8 +54,11 @@ function initDimensionModes() {
     sheetsWidthInput.addEventListener('input', updateDimensionsFromSheets);
     sheetsHeightInput.addEventListener('input', updateDimensionsFromSheets);
     
-    // Atualizar inicialmente o número de folhas com base nas dimensões padrão
-    updateSheetsFromDimensions();
+    // Permitir que o carregamento inicial da configuração seja concluído antes
+    // de habilitar as atualizações automáticas entre modos
+    setTimeout(() => {
+        initializing = false;
+    }, 500); // Aumentado para 500ms para garantir que o carregamento termine
 }
 
 /**
@@ -41,6 +70,9 @@ function switchMode(mode) {
     const sheetCountModeBtn = document.getElementById('sheet-count-mode-btn');
     const dimensionsInput = document.getElementById('dimensions-input');
     const sheetCountInput = document.getElementById('sheet-count-input');
+    
+    // Se o modo for o mesmo, não fazer nada
+    if (currentDimensionMode === mode) return;
     
     currentDimensionMode = mode;
     
@@ -57,15 +89,18 @@ function switchMode(mode) {
         sheetCountInput.classList.add('active');
     }
     
-    // Se mudar para o modo de folhas, atualizar os valores com base nas dimensões atuais
-    if (mode === 'sheets') {
-        updateSheetsFromDimensions();
-    } else {
-        updateDimensionsFromSheets();
+    // Se não estiver inicializando, atualizar valores entre modos
+    if (!initializing) {
+        // Se mudar para o modo de folhas, atualizar os valores com base nas dimensões atuais
+        if (mode === 'sheets') {
+            updateSheetsFromDimensions();
+        } else {
+            updateDimensionsFromSheets();
+        }
+        
+        // Atualizar visualização somente se não estiver inicializando
+        updateVisualization();
     }
-    
-    // Atualizar visualização
-    updateVisualization();
 }
 
 /**
@@ -74,6 +109,9 @@ function switchMode(mode) {
 function updateSheetsFromDimensions() {
     const sheetsWidthInput = document.getElementById('sheets-width');
     const sheetsHeightInput = document.getElementById('sheets-height');
+    
+    // Se estiver inicializando, não sobreescrever os valores
+    if (initializing) return;
     
     // Obter dimensões da faixa em cm
     const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
@@ -103,6 +141,9 @@ function updateDimensionsFromSheets() {
     const sheetsWidthInput = document.getElementById('sheets-width');
     const sheetsHeightInput = document.getElementById('sheets-height');
     
+    // Se estiver inicializando, não sobreescrever os valores
+    if (initializing) return;
+    
     // Obter número de folhas
     const sheetsWidth = parseInt(sheetsWidthInput.value) || 1;
     const sheetsHeight = parseInt(sheetsHeightInput.value) || 1;
@@ -130,4 +171,14 @@ function updateDimensionsFromSheets() {
  */
 function getCurrentDimensionMode() {
     return currentDimensionMode;
+}
+
+/**
+ * Define externamente o modo de dimensionamento 
+ * usado quando o script principal carrega a configuração
+ */
+function setDimensionMode(mode) {
+    if (mode === 'dimensions' || mode === 'sheets') {
+        currentDimensionMode = mode;
+    }
 }

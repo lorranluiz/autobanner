@@ -461,6 +461,10 @@ function updateOverlap() {
 
 // Função para salvar configuração
 function saveConfiguration() {
+
+    const sheetsWidthInput = document.getElementById('sheets-width');
+    const sheetsHeightInput = document.getElementById('sheets-height');
+
     const config = {
         bannerWidth: parseFloat(bannerWidthInput.value) || 100,
         bannerHeight: parseFloat(bannerHeightInput.value) || 50,
@@ -495,26 +499,41 @@ function loadConfiguration(showAlerts = true) {
     try {
         const config = JSON.parse(configString);
         
+        // Configurar flag de inicialização para evitar atualizações indesejadas
+        if (typeof initializing !== 'undefined') {
+            initializing = true;
+        }
+        
+        // Definir orientação primeiro, pois afeta os cálculos
+        orientationToggle.checked = config.isPortrait;
+        isPortrait = config.isPortrait;
+        
+        // Configurar margens antes das dimensões
+        marginSlider.value = config.sheetMargin;
+        sheetMargin = config.sheetMargin;
+        marginValueDisplay.textContent = sheetMargin;
+        
+        // Carregar configurações de folhas e dimensões
         bannerWidthInput.value = config.bannerWidth;
         bannerHeightInput.value = config.bannerHeight;
         
         // Carregar configurações de folhas se disponíveis
+        const sheetsWidthInput = document.getElementById('sheets-width');
+        const sheetsHeightInput = document.getElementById('sheets-height');
         if (config.sheetsWidth) sheetsWidthInput.value = config.sheetsWidth;
         if (config.sheetsHeight) sheetsHeightInput.value = config.sheetsHeight;
         
-        // Definir o modo de dimensionamento
+        // Aplicar o modo de dimensionamento
         if (config.dimensionMode) {
+            if (typeof setDimensionMode === 'function') {
+                setDimensionMode(config.dimensionMode);
+            }
             switchMode(config.dimensionMode);
         }
         
-        orientationToggle.checked = config.isPortrait;
-        isPortrait = config.isPortrait;
-        marginSlider.value = config.sheetMargin;
-        sheetMargin = config.sheetMargin;
-        marginValueDisplay.textContent = sheetMargin;
+        // Configurar outras opções
         zoomSlider.value = config.zoomLevel;
         zoomLevel = config.zoomLevel;
-        updateZoom();
         showNumbersCheckbox.checked = config.showNumbers;
         showNumbers = config.showNumbers;
         printMarginInput.value = config.printMargin;
@@ -528,7 +547,17 @@ function loadConfiguration(showAlerts = true) {
             document.documentElement.classList.remove('dark-mode');
         }
         
-        updateVisualization();
+        // Restaurar flag de inicialização
+        if (typeof initializing !== 'undefined') {
+            setTimeout(() => {
+                initializing = false;
+                updateZoom(); // Atualiza o display do zoom
+                updateVisualization(); // Força atualização da visualização
+            }, 100);
+        } else {
+            updateZoom();
+            updateVisualization();
+        }
         
         if (showAlerts) {
             alert('Configuração carregada com sucesso!');
@@ -1911,7 +1940,7 @@ async function createAssemblyGuidePDF(sheets) {
     const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
     const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
     
-    page.drawText(`Dimensões da Faixa: ${bannerWidth}cm x ${bannerHeight}cm`, {
+    page.drawText("Dimensões da Faixa: ${bannerWidth}cm x ${bannerHeight}cm", {
         x: margin,
         y: yPos,
         size: 12,
@@ -1922,7 +1951,7 @@ async function createAssemblyGuidePDF(sheets) {
     yPos -=20;
     
     const orientation = isPortrait ? 'retrato (21cm x 29.7cm)' : 'paisagem (29.7cm x 21cm)';
-    page.drawText(`Folhas A4: ${sheets.total} folhas em orientação ${orientation}`, {
+    page.drawText("Folhas A4: ${sheets.total} folhas em orientação ${orientation}", {
         x: margin,
         y: yPos,
         size: 12,
@@ -1932,7 +1961,7 @@ async function createAssemblyGuidePDF(sheets) {
     
     yPos -= 20;
     
-    page.drawText(`Distribuição: ${sheets.horizontal} x ${sheets.vertical} (colunas x linhas)`, {
+    page.drawText("Distribuição: ${sheets.horizontal} x ${sheets.vertical} (colunas x linhas)", {
         x: margin,
         y: yPos,
         size: 12,
@@ -2218,4 +2247,3 @@ window.addEventListener("load", async () => {
     updateVisualization();
     initCanvasInteraction();
 });
-

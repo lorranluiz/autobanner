@@ -48,10 +48,8 @@ Autobanner is a web-based tool designed to help you create large banners that ca
 This project is open-source and built with dedication to help the community. If you find it useful and would like to support its development, consider making a donation. Your support helps keep this project alive and evolving! 🚀
 
 🔹 Ways to support:
-
-GitHub Sponsors:
-<img alt="Sponsor on GitHub" src="https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&amp;logo=GitHub-Sponsors&amp;logoColor=#EA4AAA">
-Pix (Brazil): 21997427600
+- GitHub Sponsors: [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/lorranluiz)
+- Pix (Brazil): 21997427600
 
 ## 📧 Contact
 

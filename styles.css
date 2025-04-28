@@ -541,3 +541,59 @@ input:focus {
         padding: 15px;
     }
 }
+
+/* Estilos para os modos de entrada de dimensões */
+.mode-selector {
+    display: flex;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 500;
+    color: #555;
+}
+
+.dark-mode .mode-btn {
+    background-color: #444654;
+    color: #ccc;
+}
+
+.mode-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.dark-mode .mode-btn:hover {
+    background-color: #535663;
+}
+
+.mode-btn.active {
+    background-color: #10a37f;
+    color: white;
+}
+
+.dark-mode .mode-btn.active {
+    background-color: #19c37d;
+}
+
+.input-mode {
+    display: none;
+}
+
+.input-mode.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

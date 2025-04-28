@@ -278,8 +278,20 @@ function calculateSheets(bannerWidth, bannerHeight) {
 
 // Função para atualizar a visualização quando os valores mudarem
 function updateVisualization() {
-    const bannerWidth = parseFloat(bannerWidthInput.value) || 100;
-    const bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    // Obter dimensões da faixa com base no modo atual
+    let bannerWidth, bannerHeight;
+    
+    // Verificar se a função getCurrentDimensionMode existe e qual modo está ativo
+    if (typeof getCurrentDimensionMode === 'function' && getCurrentDimensionMode() === 'sheets') {
+        // Forçar atualização das dimensões a partir do número de folhas
+        updateDimensionsFromSheets();
+        bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+        bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    } else {
+        // Modo padrão por dimensões ou função não disponível ainda
+        bannerWidth = parseFloat(bannerWidthInput.value) || 100;
+        bannerHeight = parseFloat(bannerHeightInput.value) || 50;
+    }
     
     drawBanner(bannerWidth, bannerHeight);
 }
@@ -299,6 +311,16 @@ function toggleDarkMode() {
 // Função para alternar orientação do papel
 function toggleOrientation() {
     isPortrait = orientationToggle.checked;
+    
+    // Atualizar cálculo de folhas ou dimensões dependendo do modo atual
+    if (typeof updateSheetsFromDimensions === 'function') {
+        if (typeof getCurrentDimensionMode === 'function' && getCurrentDimensionMode() === 'sheets') {
+            updateDimensionsFromSheets();
+        } else {
+            updateSheetsFromDimensions();
+        }
+    }
+    
     updateVisualization();
 }
 
@@ -306,6 +328,16 @@ function toggleOrientation() {
 function updateMargin() {
     sheetMargin = parseInt(marginSlider.value);
     marginValueDisplay.textContent = sheetMargin;
+    
+    // Atualizar cálculo de folhas ou dimensões dependendo do modo atual
+    if (typeof updateSheetsFromDimensions === 'function') {
+        if (typeof getCurrentDimensionMode === 'function' && getCurrentDimensionMode() === 'sheets') {
+            updateDimensionsFromSheets();
+        } else {
+            updateSheetsFromDimensions();
+        }
+    }
+    
     updateVisualization();
 }
 
@@ -432,6 +464,9 @@ function saveConfiguration() {
     const config = {
         bannerWidth: parseFloat(bannerWidthInput.value) || 100,
         bannerHeight: parseFloat(bannerHeightInput.value) || 50,
+        sheetsWidth: parseInt(sheetsWidthInput.value) || 3,
+        sheetsHeight: parseInt(sheetsHeightInput.value) || 2,
+        dimensionMode: getCurrentDimensionMode(),
         isPortrait: isPortrait,
         sheetMargin: sheetMargin,
         zoomLevel: zoomLevel,
@@ -462,6 +497,16 @@ function loadConfiguration(showAlerts = true) {
         
         bannerWidthInput.value = config.bannerWidth;
         bannerHeightInput.value = config.bannerHeight;
+        
+        // Carregar configurações de folhas se disponíveis
+        if (config.sheetsWidth) sheetsWidthInput.value = config.sheetsWidth;
+        if (config.sheetsHeight) sheetsHeightInput.value = config.sheetsHeight;
+        
+        // Definir o modo de dimensionamento
+        if (config.dimensionMode) {
+            switchMode(config.dimensionMode);
+        }
+        
         orientationToggle.checked = config.isPortrait;
         isPortrait = config.isPortrait;
         marginSlider.value = config.sheetMargin;
@@ -1874,7 +1919,7 @@ async function createAssemblyGuidePDF(sheets) {
         color: textColor,
     });
     
-    yPos -= 20;
+    yPos -=20;
     
     const orientation = isPortrait ? 'retrato (21cm x 29.7cm)' : 'paisagem (29.7cm x 21cm)';
     page.drawText(`Folhas A4: ${sheets.total} folhas em orientação ${orientation}`, {
@@ -2151,13 +2196,16 @@ function addPDFMetadata(pdfDoc, pageIndex, totalPages) {
 // Remover as funções de interact.js que não serão mais necessárias
 // Remover initializeImageInteraction, dragMoveListener, resizeMoveListener, updateManipulatorPosition
 
-// Inicializar - modificado para abrir o banco de dados e carregar a imagem
+// Inicializar - modificado para também inicializar os modos de dimensionamento
 window.addEventListener("load", async () => {
     loadThemePreference();
     // Carregar configurações salvas automaticamente (sem alertas)
     loadConfiguration(false);
     updateMargin();
     updateZoom();
+    
+    // Inicializar o controlador de modos de dimensionamento
+    initDimensionModes();
     
     // Inicializar o banco de dados e carregar a imagem
     try {
